@@ -14,26 +14,27 @@ const TADashboard = () => {
     const [showJobModal, setShowJobModal] = useState(false);
     const [showCandidateModal, setShowCandidateModal] = useState(false);
     const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [filterStatus, setFilterStatus] = useState("All");
+    const [showFeedbackModal, setShowFeedbackModal] = useState(false);
 
-    const jobs = [
-        { id: 1, title: "Senior Full Stack Developer", status: "Active", applicants: 28, posted: "2024-01-15", deadline: "2024-02-15" },
-        { id: 2, title: "Product Manager", status: "Active", applicants: 15, posted: "2024-01-20", deadline: "2024-02-20" },
-        { id: 3, title: "UI/UX Designer", status: "Draft", applicants: 0, posted: "2024-01-22", deadline: "2024-02-25" },
-        { id: 4, title: "Data Scientist", status: "Active", applicants: 42, posted: "2024-01-10", deadline: "2024-02-10" },
-    ];
-
-    const candidates = [
+    // AI Match Scores & States
+    const [candidatesList, setCandidatesList] = useState([
         {
             id: 1,
             name: "Alice Johnson",
             position: "Senior Developer",
             status: "Interview Scheduled",
             progress: 75,
+            matchScore: 94,
             email: "alice@email.com",
             phone: "+1 234-567-8901",
             experience: "5 years",
-            skills: ["React", "Node.js", "AWS"],
-            applied: "2024-01-18"
+            skills: ["React", "Node.js", "AWS", "TypeScript", "Next.js"],
+            applied: "2024-01-18",
+            feedback: [
+                { id: 1, interviewer: "John Doe", score: 5, notes: "Excellent technical skills, very strong in React internals." }
+            ]
         },
         {
             id: 2,
@@ -41,11 +42,13 @@ const TADashboard = () => {
             position: "Product Manager",
             status: "Resume Review",
             progress: 30,
+            matchScore: 68,
             email: "bob@email.com",
             phone: "+1 234-567-8902",
             experience: "7 years",
-            skills: ["Product Strategy", "Agile", "Analytics"],
-            applied: "2024-01-19"
+            skills: ["Product Strategy", "Agile", "Analytics", "Jira"],
+            applied: "2024-01-19",
+            feedback: []
         },
         {
             id: 3,
@@ -53,13 +56,31 @@ const TADashboard = () => {
             position: "UI/UX Designer",
             status: "Final Round",
             progress: 90,
+            matchScore: 88,
             email: "carol@email.com",
             phone: "+1 234-567-8903",
             experience: "4 years",
-            skills: ["Figma", "Design Systems", "User Research"],
-            applied: "2024-01-17"
+            skills: ["Figma", "Design Systems", "User Research", "Prototyping"],
+            applied: "2024-01-17",
+            feedback: [
+                { id: 1, interviewer: "Jane Smith", score: 4, notes: "Great eye for detail. Portfolio looks solid." }
+            ]
         },
-    ];
+        {
+            id: 4,
+            name: "David Wilson",
+            position: "Senior Developer",
+            status: "Interview Scheduled",
+            progress: 45,
+            matchScore: 82,
+            email: "david.w@email.com",
+            phone: "+1 234-567-8904",
+            experience: "6 years",
+            skills: ["Python", "Docker", "Go", "Kubernetes"],
+            applied: "2024-01-20",
+            feedback: []
+        },
+    ]);
 
     const interviews = [
         { id: 1, candidate: "Alice Johnson", position: "Senior Developer", date: "2024-02-05", time: "10:00 AM", type: "Technical", interviewer: "John Doe" },
@@ -94,7 +115,35 @@ const TADashboard = () => {
     };
 
     const handleUpdateStatus = (candidateId: number, newStatus: string) => {
+        setCandidatesList(prev => prev.map(c => 
+            c.id === candidateId ? { ...c, status: newStatus } : c
+        ));
         toast.success(`Candidate status updated to: ${newStatus}`);
+    };
+
+    const handleAddFeedback = (candidateId: number, score: number, notes: string) => {
+        setCandidatesList(prev => prev.map(c => 
+            c.id === candidateId ? { 
+                ...c, 
+                feedback: [...c.feedback, { id: Date.now(), interviewer: currentUser.name || "Manager", score, notes }]
+            } : c
+        ));
+        toast.success("Feedback added successfully!");
+        setShowFeedbackModal(false);
+    };
+
+    const filteredCandidates = candidatesList.filter(c => {
+        const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                             c.position.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesFilter = filterStatus === "All" || c.status === filterStatus;
+        return matchesSearch && matchesFilter;
+    });
+
+    const getScoreColor = (score: number) => {
+        if (score >= 90) return "text-emerald-500 border-emerald-500 bg-emerald-50";
+        if (score >= 75) return "text-blue-500 border-blue-500 bg-blue-50";
+        if (score >= 50) return "text-amber-500 border-amber-500 bg-amber-50";
+        return "text-red-500 border-red-500 bg-red-50";
     };
 
     return (
@@ -201,29 +250,41 @@ const TADashboard = () => {
                             </button>
                         </div>
 
-                        {/* Recent Candidates */}
                         <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-sm border border-white/20">
                             <div className="p-6 border-b border-gray-200">
                                 <h2 className="text-xl font-bold text-gray-900">Recent Candidates</h2>
                             </div>
                             <div className="p-6">
-                                {candidates.slice(0, 3).map((candidate) => (
-                                    <div key={candidate.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl mb-3 hover:bg-gray-100 transition-all">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-12 h-12 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center text-white font-bold">
-                                                {candidate.name.charAt(0)}
+                                {candidatesList.slice(0, 3).map((candidate) => (
+                                    <div key={candidate.id} className="flex items-center justify-between p-4 bg-white border border-gray-100 rounded-xl mb-3 hover:shadow-md transition-all">
+                                        <div className="flex items-center gap-4">
+                                            <div className="relative">
+                                                <div className="w-14 h-14 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-2xl flex items-center justify-center text-white text-xl font-bold shadow-sm">
+                                                    {candidate.name.charAt(0)}
+                                                </div>
+                                                <div className={`absolute -top-2 -right-2 w-8 h-8 rounded-full border-2 border-white flex items-center justify-center text-[10px] font-bold ${getScoreColor(candidate.matchScore)} shadow-sm`}>
+                                                    {candidate.matchScore}%
+                                                </div>
                                             </div>
                                             <div>
-                                                <p className="font-semibold text-gray-900">{candidate.name}</p>
-                                                <p className="text-sm text-gray-600">{candidate.position}</p>
+                                                <p className="font-bold text-gray-900 text-lg">{candidate.name}</p>
+                                                <p className="text-sm text-gray-500 font-medium">{candidate.position}</p>
                                             </div>
                                         </div>
-                                        <button
-                                            onClick={() => handleViewCandidate(candidate)}
-                                            className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 font-medium"
-                                        >
-                                            View Profile
-                                        </button>
+                                        <div className="flex items-center gap-6">
+                                            <div className="text-right">
+                                                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Status</p>
+                                                <span className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-xs font-bold ring-1 ring-emerald-100">
+                                                    {candidate.status}
+                                                </span>
+                                            </div>
+                                            <button
+                                                onClick={() => handleViewCandidate(candidate)}
+                                                className="px-5 py-2.5 bg-gray-900 text-white rounded-xl hover:bg-black font-semibold text-sm transition-all active:scale-95"
+                                            >
+                                                View Profile
+                                            </button>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -307,14 +368,22 @@ const TADashboard = () => {
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                                         <input
                                             type="text"
-                                            placeholder="Search candidates..."
-                                            className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            placeholder="Search name, position..."
+                                            className="pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all w-64"
                                         />
                                     </div>
-                                    <button className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center gap-2">
-                                        <Filter className="w-4 h-4" />
-                                        Filter
-                                    </button>
+                                    <select 
+                                        value={filterStatus}
+                                        onChange={(e) => setFilterStatus(e.target.value)}
+                                        className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all text-sm font-medium"
+                                    >
+                                        <option value="All">All Status</option>
+                                        <option value="Resume Review">Resume Review</option>
+                                        <option value="Interview Scheduled">Interview Scheduled</option>
+                                        <option value="Final Round">Final Round</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -331,54 +400,63 @@ const TADashboard = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y">
-                                    {candidates.map((candidate) => (
-                                        <tr key={candidate.id} className="hover:bg-gray-50">
+                                    {filteredCandidates.map((candidate) => (
+                                        <tr key={candidate.id} className="hover:bg-gray-50/50 transition-colors group">
                                             <td className="px-6 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center text-white font-medium">
-                                                        {candidate.name.charAt(0)}
+                                                <div className="flex items-center gap-4">
+                                                    <div className="relative">
+                                                        <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-xl flex items-center justify-center text-white font-bold group-hover:scale-105 transition-transform">
+                                                            {candidate.name.charAt(0)}
+                                                        </div>
                                                     </div>
-                                                    <span className="font-medium text-gray-900">{candidate.name}</span>
+                                                    <div>
+                                                        <span className="font-bold text-gray-900 block">{candidate.name}</span>
+                                                        <span className="text-xs text-gray-500">{candidate.email}</span>
+                                                    </div>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-gray-600">{candidate.position}</td>
+                                            <td className="px-6 py-4 text-gray-600 font-medium">{candidate.position}</td>
                                             <td className="px-6 py-4">
-                                                <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+                                                <span className={`px-3 py-1 rounded-lg text-xs font-bold ring-1 ${
+                                                    candidate.status === 'Final Round' ? 'bg-purple-50 text-purple-600 ring-purple-100' :
+                                                    candidate.status === 'Interview Scheduled' ? 'bg-blue-50 text-blue-600 ring-blue-100' :
+                                                    'bg-amber-50 text-amber-600 ring-amber-100'
+                                                }`}>
                                                     {candidate.status}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="flex-1 bg-gray-200 rounded-full h-2">
-                                                        <div
-                                                            className="bg-gradient-to-r from-emerald-500 to-teal-600 h-2 rounded-full"
-                                                            style={{ width: `${candidate.progress}%` }}
-                                                        />
+                                                    <div className={`w-12 h-12 rounded-full border-4 flex items-center justify-center text-xs font-bold ${getScoreColor(candidate.matchScore)}`}>
+                                                        {candidate.matchScore}%
                                                     </div>
-                                                    <span className="text-sm text-gray-600 font-medium">{candidate.progress}%</span>
+                                                    <div className="hidden lg:block">
+                                                        <p className="text-[10px] font-bold text-gray-400 uppercase">AI Match</p>
+                                                        <p className="text-xs font-bold text-gray-700">Excellent</p>
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <div className="flex gap-2">
+                                                <div className="flex gap-1">
                                                     <button
                                                         onClick={() => handleViewCandidate(candidate)}
-                                                        className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg"
+                                                        className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
                                                         title="View Profile"
                                                     >
-                                                        <Eye className="w-4 h-4" />
+                                                        <Eye className="w-5 h-5" />
                                                     </button>
                                                     <button
                                                         onClick={() => handleScheduleInterview(candidate.id)}
-                                                        className="p-2 text-teal-600 hover:bg-teal-50 rounded-lg"
+                                                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
                                                         title="Schedule Interview"
                                                     >
-                                                        <Calendar className="w-4 h-4" />
+                                                        <Calendar className="w-5 h-5" />
                                                     </button>
                                                     <button
-                                                        className="p-2 text-cyan-600 hover:bg-cyan-50 rounded-lg"
+                                                        className="p-2 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-xl transition-all"
                                                         title="Send Message"
                                                     >
-                                                        <MessageSquare className="w-4 h-4" />
+                                                        <MessageSquare className="w-5 h-5" />
                                                     </button>
                                                 </div>
                                             </td>
@@ -531,61 +609,193 @@ const TADashboard = () => {
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
-                        <div className="p-6">
-                            <div className="space-y-6">
-                                <div className="grid md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="text-sm font-medium text-gray-500">Email</label>
-                                        <p className="text-gray-900 mt-1">{selectedCandidate.email}</p>
+                        <div className="p-8">
+                            <div className="grid md:grid-cols-2 gap-8 mb-8">
+                                <div className="space-y-4">
+                                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                        <UserCheck className="w-5 h-5 text-emerald-600" />
+                                        Contact Information
+                                    </h3>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                                            <label className="text-[10px] uppercase tracking-wider font-bold text-gray-400 block mb-1">Email</label>
+                                            <p className="text-gray-900 font-semibold truncate">{selectedCandidate.email}</p>
+                                        </div>
+                                        <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                                            <label className="text-[10px] uppercase tracking-wider font-bold text-gray-400 block mb-1">Phone</label>
+                                            <p className="text-gray-900 font-semibold">{selectedCandidate.phone}</p>
+                                        </div>
+                                        <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                                            <label className="text-[10px] uppercase tracking-wider font-bold text-gray-400 block mb-1">Experience</label>
+                                            <p className="text-gray-900 font-semibold">{selectedCandidate.experience}</p>
+                                        </div>
+                                        <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                                            <label className="text-[10px] uppercase tracking-wider font-bold text-gray-400 block mb-1">Applied On</label>
+                                            <p className="text-gray-900 font-semibold">{selectedCandidate.applied}</p>
+                                        </div>
                                     </div>
                                     <div>
-                                        <label className="text-sm font-medium text-gray-500">Phone</label>
-                                        <p className="text-gray-900 mt-1">{selectedCandidate.phone}</p>
-                                    </div>
-                                    <div>
-                                        <label className="text-sm font-medium text-gray-500">Experience</label>
-                                        <p className="text-gray-900 mt-1">{selectedCandidate.experience}</p>
-                                    </div>
-                                    <div>
-                                        <label className="text-sm font-medium text-gray-500">Applied On</label>
-                                        <p className="text-gray-900 mt-1">{selectedCandidate.applied}</p>
+                                        <label className="text-[10px] uppercase tracking-wider font-bold text-gray-400 block mb-3">Skills & Expertise</label>
+                                        <div className="flex flex-wrap gap-2">
+                                            {selectedCandidate.skills.map((skill: string) => (
+                                                <span key={skill} className="px-4 py-2 bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-700 border border-emerald-100 rounded-xl text-sm font-bold shadow-sm">
+                                                    {skill}
+                                                </span>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
-                                <div>
-                                    <label className="text-sm font-medium text-gray-500 mb-2 block">Skills</label>
-                                    <div className="flex flex-wrap gap-2">
-                                        {selectedCandidate.skills.map((skill: string) => (
-                                            <span key={skill} className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium">
-                                                {skill}
-                                            </span>
-                                        ))}
+
+                                <div className="space-y-4">
+                                    <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-6 rounded-3xl text-white shadow-xl relative overflow-hidden">
+                                        <div className="absolute top-0 right-0 p-8 opacity-10">
+                                            <Sparkles className="w-24 h-24" />
+                                        </div>
+                                        <div className="relative z-10">
+                                            <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                                                <TrendingUp className="w-5 h-5 text-emerald-400" />
+                                                AI Insights
+                                            </h3>
+                                            <div className="flex items-center gap-4 mb-4">
+                                                <div className="w-20 h-20 rounded-2xl border-2 border-emerald-500/50 flex flex-col items-center justify-center bg-emerald-500/10">
+                                                    <span className="text-2xl font-black text-emerald-400">{selectedCandidate.matchScore}%</span>
+                                                    <span className="text-[8px] uppercase font-black">Score</span>
+                                                </div>
+                                                <div>
+                                                    <p className="text-emerald-400 font-black uppercase text-xs">Recommended</p>
+                                                    <p className="text-sm text-gray-300">Top 5% of all applicants for this role based on technical proficiency and experience.</p>
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <div className="flex justify-between text-xs">
+                                                    <span className="text-gray-400">Technical Skills</span>
+                                                    <span className="text-emerald-400">98%</span>
+                                                </div>
+                                                <div className="bg-gray-700 h-1.5 rounded-full overflow-hidden">
+                                                    <div className="bg-emerald-500 h-full w-[98%]" />
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                                <div>
-                                    <label className="text-sm font-medium text-gray-500 mb-2 block">Current Status</label>
-                                    <span className="px-4 py-2 bg-blue-100 text-blue-700 rounded-xl text-sm font-medium">
-                                        {selectedCandidate.status}
-                                    </span>
-                                </div>
-                                <div className="flex gap-3">
-                                    <button
-                                        onClick={() => handleScheduleInterview(selectedCandidate.id)}
-                                        className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl font-medium hover:shadow-lg flex items-center justify-center gap-2"
-                                    >
-                                        <Calendar className="w-5 h-5" />
-                                        Schedule Interview
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            toast.success("Message sent to candidate!");
-                                        }}
-                                        className="flex-1 py-3 border-2 border-emerald-500 text-emerald-600 rounded-xl font-medium hover:bg-emerald-50 flex items-center justify-center gap-2"
-                                    >
-                                        <Send className="w-5 h-5" />
-                                        Send Message
-                                    </button>
+
+                                    <div className="bg-white p-6 rounded-3xl border-2 border-dashed border-gray-200">
+                                        <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center justify-between">
+                                            Interview Feedback
+                                            <button 
+                                                onClick={() => setShowFeedbackModal(true)}
+                                                className="text-emerald-600 hover:text-emerald-700 text-xs font-black uppercase underline decoration-2 underline-offset-4"
+                                            >
+                                                Add Feedback
+                                            </button>
+                                        </h3>
+                                        <div className="space-y-4 max-h-48 overflow-y-auto pr-2">
+                                            {selectedCandidate.feedback && selectedCandidate.feedback.length > 0 ? (
+                                                selectedCandidate.feedback.map((f: any) => (
+                                                    <div key={f.id} className="p-3 bg-gray-50 rounded-2xl border border-gray-100">
+                                                        <div className="flex justify-between items-center mb-1">
+                                                            <span className="text-xs font-bold text-gray-900">{f.interviewer}</span>
+                                                            <div className="flex gap-0.5">
+                                                                {[...Array(5)].map((_, i) => (
+                                                                    <Star key={i} className={`w-3 h-3 ${i < f.score ? 'text-amber-400 fill-amber-400' : 'text-gray-300'}`} />
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                        <p className="text-xs text-gray-600 leading-relaxed italic">"{f.notes}"</p>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="text-center py-6">
+                                                    <MessageSquare className="w-8 h-8 text-gray-200 mx-auto mb-2" />
+                                                    <p className="text-xs text-gray-400 font-medium">No feedback recorded yet</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
+
+                            <div className="flex gap-4">
+                                <div className="relative flex-1 group">
+                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                        <CheckCircle2 className="w-5 h-5 text-gray-400 group-focus-within:text-emerald-600 transition-colors" />
+                                    </div>
+                                    <select 
+                                        className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl font-bold text-gray-900 appearance-none focus:bg-white focus:border-emerald-500 transition-all outline-none"
+                                        value={selectedCandidate.status}
+                                        onChange={(e) => handleUpdateStatus(selectedCandidate.id, e.target.value)}
+                                    >
+                                        <option>Resume Review</option>
+                                        <option>Interview Scheduled</option>
+                                        <option>Final Round</option>
+                                        <option>Hired</option>
+                                        <option>Rejected</option>
+                                    </select>
+                                </div>
+                                <button
+                                    onClick={() => handleScheduleInterview(selectedCandidate.id)}
+                                    className="px-8 py-4 bg-gray-900 text-white rounded-2xl font-bold text-sm shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all active:scale-95 flex items-center gap-2"
+                                >
+                                    <Calendar className="w-5 h-5" />
+                                    Schedule Interview
+                                </button>
+                                <button
+                                    className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-100 transition-all"
+                                >
+                                    <Send className="w-6 h-6" />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Feedback Modal */}
+            {showFeedbackModal && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[60] p-6 animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[40px] shadow-2xl max-w-md w-full p-10 transform animate-in slide-in-from-bottom-8 duration-500">
+                        <div className="text-center mb-8">
+                            <div className="w-20 h-20 bg-emerald-100 rounded-3xl flex items-center justify-center mx-auto mb-4">
+                                <Star className="w-10 h-10 text-emerald-600" />
+                            </div>
+                            <h2 className="text-2xl font-black text-gray-900 mb-2">Interview Feedback</h2>
+                            <p className="text-gray-500 font-medium">Share your thoughts on {selectedCandidate?.name}'s performance</p>
+                        </div>
+                        
+                        <div className="space-y-8">
+                            <div>
+                                <label className="text-[10px] uppercase tracking-widest font-black text-gray-400 block mb-4 text-center">Score Portfolio</label>
+                                <div className="flex justify-center gap-3">
+                                    {[1, 2, 3, 4, 5].map((score) => (
+                                        <button
+                                            key={score}
+                                            onClick={() => {
+                                                const notes = (document.getElementById('feedback-notes') as HTMLTextAreaElement).value;
+                                                handleAddFeedback(selectedCandidate.id, score, notes);
+                                            }}
+                                            className="w-12 h-12 rounded-2xl border-2 border-gray-100 flex items-center justify-center text-lg font-bold hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-600 transition-all active:scale-95"
+                                        >
+                                            {score}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="text-[10px] uppercase tracking-widest font-black text-gray-400 block mb-2">Technical & Soft Skills Notes</label>
+                                <textarea
+                                    id="feedback-notes"
+                                    rows={4}
+                                    placeholder="Examples: Strong system design knowledge, culture fit, etc."
+                                    className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-[30px] focus:bg-white focus:border-emerald-500 transition-all outline-none text-sm font-medium"
+                                ></textarea>
+                            </div>
+
+                            <button
+                                onClick={() => setShowFeedbackModal(false)}
+                                className="w-full py-5 bg-gray-50 text-gray-400 rounded-[30px] font-black uppercase tracking-widest text-xs hover:bg-gray-100 hover:text-gray-600 transition-all"
+                            >
+                                Not Now
+                            </button>
                         </div>
                     </div>
                 </div>
